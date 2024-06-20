@@ -77,15 +77,17 @@ def data_generator(files, batch_size=32):
                 yield np.array(batch_data), np.array(batch_labels)
                 batch_data = []
                 batch_labels = []
-                
+
+audio_dir = os.path.join(os.getcwd(), 'filtered_dataset')                
 # Get a list of all audio files in the directory
 all_files = []
-for subdir, dirs, files in os.walk(directory):
+for subdir, dirs, files in os.walk(audio_dir):
     for file in files:
         if file.endswith(".wav"):
             all_files.append(os.path.join(subdir, file))
 
 # Split the list of files into training and test sets
+from sklearn.model_selection import train_test_split
 train_files, test_files = train_test_split(all_files, test_size=0.2)
 
 # Create generators for training and test sets
