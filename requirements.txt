@@ -1,5 +1,7 @@
-librosa
-numpy
 streamlit-audiorec
-scipy
+streamlit
+librosa
 tensorflow
+scipy
+numpy
+matplotlib
