@@ -1,6 +1,7 @@
 streamlit-audiorec
 streamlit
 librosa==0.10.2
+resampy
 tensorflow
 scipy
 numpy
