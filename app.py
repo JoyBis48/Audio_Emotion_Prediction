@@ -8,16 +8,90 @@ from tensorflow.keras.models import load_model
 import streamlit as st
 from st_audiorec import st_audiorec
 from scipy.io.wavfile import read as wav_read, write as wav_write 
+import random
 
 # Defining Emotion list based on encode classes
 emotion_list = ['Angry', 'Disgusted', 'Fearful', 'Happy', 'Neutral', 'Sad', 'Surprised']
 
 # Utliity Functions
-def extract_features(audio_path):
-    data, sr = librosa.load(audio_path, res_type='kaiser_fast')
-    mfccs = librosa.feature.mfcc(y=data, sr=sr, n_mfcc=64)
-    mfccs = np.mean(mfccs.T, axis=0)
-    return mfccs
+def extract_features(file, sr=22050):
+    data, _ = librosa.load(file, sr=sr)
+
+    # Extract features
+    zcr = np.mean(librosa.feature.zero_crossing_rate(y=data).T, axis=0)
+    chroma_stft = np.mean(librosa.feature.chroma_stft(y=data, sr=sr).T, axis=0)
+    mfcc = np.mean(librosa.feature.mfcc(y=data, sr=sr).T, axis=0)
+    rms = np.mean(librosa.feature.rms(y=data).T, axis=0)
+    mel_spectrogram = np.mean(librosa.feature.melspectrogram(y=data, sr=sr).T, axis=0)
+
+    # Horizontally stack features
+    features = np.hstack([zcr, chroma_stft, mfcc, rms, mel_spectrogram])
+    
+    return features
+
+
+
+# Define a mapping from class names to integers
+class_map = {'Angry': 0, 'Disgusted': 1, 'Fearful': 2, 'Happy': 3, 'Neutral': 4, 'Sad': 5, 'Surprised': 6}
+
+# Defining the transformations
+def time_stretch(data, rate=0.8):
+    return librosa.effects.time_stretch(data, rate)
+
+def pitch_shift(data, sr, n_steps=4):
+    return librosa.effects.pitch_shift(data, sr, n_steps)
+
+def add_noise(data):
+    noise_amp = 0.025*np.random.uniform()*np.amax(data)  # adding random amount of gaussian noise
+    data = data + noise_amp*np.random.normal(size=data.shape[0])
+    return data
+
+# List of transformations
+transformations = [time_stretch, pitch_shift, add_noise]
+
+
+# Making the generator function
+def data_generator(files, batch_size=32):
+    while True:
+        # Shuffle the list of files
+        random.shuffle(files)
+
+        # Apply transformations to each file and stack them
+        batch_data = []
+        batch_labels = []
+        for file in files:
+            # Extract features
+            features = extract_features(file)
+
+            # Apply transformations
+            for transform in transformations:
+                transformed_data = transform(features)
+                batch_data.append(transformed_data)
+
+                # Get the label from the file name
+                label = os.path.basename(os.path.dirname(file))
+                batch_labels.append(class_map[label])
+
+            # Yield batches
+            if len(batch_data) == batch_size:
+                yield np.array(batch_data), np.array(batch_labels)
+                batch_data = []
+                batch_labels = []
+                
+# Get a list of all audio files in the directory
+all_files = []
+for subdir, dirs, files in os.walk(directory):
+    for file in files:
+        if file.endswith(".wav"):
+            all_files.append(os.path.join(subdir, file))
+
+# Split the list of files into training and test sets
+train_files, test_files = train_test_split(all_files, test_size=0.2)
+
+# Create generators for training and test sets
+train_generator = data_generator(train_files)
+test_generator = data_generator(test_files)
+
 
 # Making the detection function
 def detect(audio_path):
