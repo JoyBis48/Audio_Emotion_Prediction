@@ -11,6 +11,7 @@ from scipy.io.wavfile import read as wav_read, write as wav_write
 import warnings
 warnings.filterwarnings('ignore')
 import joblib
+from distinction import classify_gender
 
 # Defining Emotion list based on encoded classes
 emotion_list = ['Angry', 'Disgusted', 'Fearful', 'Happy', 'Neutral', 'Sad', 'Surprised']
@@ -64,8 +65,13 @@ if uploaded_file is not None:
         f.write(uploaded_file.getbuffer())
     st.audio(uploaded_file, format='audio/wav')
     if st.button("Submit"):
-        emotion = detect("uploaded_audio.wav")
-        st.write(f"Predicted Emotion: {emotion}")
+        gender, _ = classify_gender("uploaded_audio.wav")
+        if gender=="male":
+            st.write("Sorry :( , this model is only trained to detect emotions from female voices. Please upload female voice audio file.")
+            os.remove("uploaded_audio.wav")
+        else:
+            emotion = detect("uploaded_audio.wav")
+            st.write(f"Predicted Emotion: {emotion}")
 
 # Providing option to record audio
 recorded_data = st_audiorec()
@@ -80,8 +86,12 @@ if recorded_data is not None:
     wav_write(wav_file_path, sr, audio_data)
 
     st.audio(recorded_data, format='audio/wav')
-    emotion = detect(wav_file_path)
-    st.write(f"Predicted Emotion: {emotion}")
+    if gender=="male":
+        st.write("Sorry :( , this model is only trained to detect emotions from female voices. Please upload female voice audio file.")
+        os.remove("recorded_audio.wav")
+    else:
+        emotion = detect(wav_file_path)
+        st.write(f"Predicted Emotion: {emotion}")
 
 
 
