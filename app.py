@@ -1,53 +1,54 @@
+# type: ignore
 # Importing Libraries
 import io
 import librosa  
 import numpy as np  
 import os
-import tensorflow as tf
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model 
 import streamlit as st
 from st_audiorec import st_audiorec
 from scipy.io.wavfile import read as wav_read, write as wav_write 
 import random
+from librosa.effects import time_stretch, pitch_shift
+from sklearn.preprocessing import StandardScaler 
 
 # Defining Emotion list based on encode classes
 emotion_list = ['Angry', 'Disgusted', 'Fearful', 'Happy', 'Neutral', 'Sad', 'Surprised']
 
 # Utliity Functions
-def extract_features(file, sr=22050):
-    data, _ = librosa.load(file, sr=sr)
+ 
 
-    # Extract features
+def extract_features(data, sample_rate=22050):
     zcr = np.mean(librosa.feature.zero_crossing_rate(y=data).T, axis=0)
-    chroma_stft = np.mean(librosa.feature.chroma_stft(y=data, sr=sr).T, axis=0)
-    mfcc = np.mean(librosa.feature.mfcc(y=data, sr=sr).T, axis=0)
+    chroma_stft = np.mean(librosa.feature.chroma_stft(y=data, sr=sample_rate).T, axis=0)
+    mfcc = np.mean(librosa.feature.mfcc(y=data, sr=sample_rate).T, axis=0)
     rms = np.mean(librosa.feature.rms(y=data).T, axis=0)
-    mel_spectrogram = np.mean(librosa.feature.melspectrogram(y=data, sr=sr).T, axis=0)
+    mel_spectrogram = np.mean(librosa.feature.melspectrogram(y=data, sr=sample_rate).T, axis=0)
+    spectral_contrast = np.mean(librosa.feature.spectral_contrast(y=data, sr=sample_rate).T, axis=0)
+    tonnetz = np.mean(librosa.feature.tonnetz(y=data, sr=sample_rate).T, axis=0)
+    spectral_rolloff = np.mean(librosa.feature.spectral_rolloff(y=data, sr=sample_rate).T, axis=0)
+    poly_features = np.mean(librosa.feature.poly_features(y=data, sr=sample_rate).T, axis=0)
 
-    # Horizontally stack features
-    features = np.hstack([zcr, chroma_stft, mfcc, rms, mel_spectrogram])
-    
-    return features
+    # Horizontally stacking features
+    features = np.hstack([zcr, chroma_stft, mfcc, rms, mel_spectrogram, spectral_contrast, tonnetz, spectral_rolloff, poly_features])
+
+    # Scaling features
+    scaler = StandardScaler()
+    scaled_features = scaler.fit_transform(features.reshape(-1, 1))
+
+    return scaled_features
 
 
 
 # Define a mapping from class names to integers
 class_map = {'Angry': 0, 'Disgusted': 1, 'Fearful': 2, 'Happy': 3, 'Neutral': 4, 'Sad': 5, 'Surprised': 6}
 
-# Defining the transformations
-def time_stretch(data, rate=0.8):
-    return librosa.effects.time_stretch(data, rate)
+# Defining the noise transformation
 
-def pitch_shift(data, sr, n_steps=4):
-    return librosa.effects.pitch_shift(data, sr, n_steps)
-
-def add_noise(data):
-    noise_amp = 0.025*np.random.uniform()*np.amax(data)  # adding random amount of gaussian noise
-    data = data + noise_amp*np.random.normal(size=data.shape[0])
+def noise(data, noise_factor=1.0):
+    noise_amp = 0.025*np.random.uniform()*np.amax(data) 
+    data = data + noise_factor * noise_amp * np.random.normal(size=data.shape[0])  # adding random amount of gaussian noise for the entirety of the audio
     return data
-
-# List of transformations
-transformations = [time_stretch, pitch_shift, add_noise]
 
 
 # Making the generator function
@@ -60,23 +61,30 @@ def data_generator(files, batch_size=32):
         batch_data = []
         batch_labels = []
         for file in files:
+            # Load the audio file
+            data, sr = librosa.load(file, sr=22050, res_type='kaiser_fast')
+
+            # Applying transformations with random intensities
+            data = time_stretch(data, rate = random.uniform(0.5, 1.5) )
+            data = pitch_shift(data, sr, n_steps = random.randint(-5, 5))
+            data = noise(data, noise_factor = random.uniform(0, 1.5)) 
+
             # Extract features
-            features = extract_features(file)
+            features = extract_features(data, sr=sr)
 
-            # Apply transformations
-            for transform in transformations:
-                transformed_data = transform(features)
-                batch_data.append(transformed_data)
-
-                # Get the label from the file name
-                label = os.path.basename(os.path.dirname(file))
-                batch_labels.append(class_map[label])
+            # Get the label from the file name
+            batch_data.append(features)
+            label = os.path.basename(os.path.dirname(file))
+            batch_labels.append(class_map[label])
 
             # Yield batches
             if len(batch_data) == batch_size:
                 yield np.array(batch_data), np.array(batch_labels)
                 batch_data = []
                 batch_labels = []
+        if batch_data:
+            yield np.array(batch_data), np.array(batch_labels)
+
 
 audio_dir = os.path.join(os.getcwd(), 'filtered_dataset')                
 # Get a list of all audio files in the directory
