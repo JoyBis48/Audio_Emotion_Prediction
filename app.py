@@ -11,14 +11,15 @@ from scipy.io.wavfile import read as wav_read, write as wav_write
 import random
 from librosa.effects import time_stretch, pitch_shift
 from sklearn.preprocessing import StandardScaler 
+from sklearn.model_selection import train_test_split
 
 # Defining Emotion list based on encode classes
 emotion_list = ['Angry', 'Disgusted', 'Fearful', 'Happy', 'Neutral', 'Sad', 'Surprised']
 
 # Utliity Functions
- 
-
 def extract_features(data, sample_rate=22050):
+
+    # Extracting features from the audio data
     zcr = np.mean(librosa.feature.zero_crossing_rate(y=data).T, axis=0)
     chroma_stft = np.mean(librosa.feature.chroma_stft(y=data, sr=sample_rate).T, axis=0)
     mfcc = np.mean(librosa.feature.mfcc(y=data, sr=sample_rate).T, axis=0)
@@ -40,11 +41,10 @@ def extract_features(data, sample_rate=22050):
 
 
 
-# Define a mapping from class names to integers
+# Defining a mapping from class names to integers
 class_map = {'Angry': 0, 'Disgusted': 1, 'Fearful': 2, 'Happy': 3, 'Neutral': 4, 'Sad': 5, 'Surprised': 6}
 
-# Defining the noise transformation
-
+# Defining the noise transformation function
 def noise(data, noise_factor=1.0):
     noise_amp = 0.025*np.random.uniform()*np.amax(data) 
     data = data + noise_factor * noise_amp * np.random.normal(size=data.shape[0])  # adding random amount of gaussian noise for the entirety of the audio
@@ -54,14 +54,14 @@ def noise(data, noise_factor=1.0):
 # Making the generator function
 def data_generator(files, batch_size=32):
     while True:
-        # Shuffle the list of files
+        # Shuffling the list of files
         random.shuffle(files)
 
-        # Apply transformations to each file and stack them
+        # Applying transformations to each file and stack them
         batch_data = []
         batch_labels = []
         for file in files:
-            # Load the audio file
+            # Loading the audio file
             data, sr = librosa.load(file, sr=22050, res_type='kaiser_fast')
 
             # Applying transformations with random intensities
@@ -69,7 +69,6 @@ def data_generator(files, batch_size=32):
             data = pitch_shift(data, sr, n_steps = random.randint(-5, 5))
             data = noise(data, noise_factor = random.uniform(0, 1.5)) 
 
-            # Extract features
             features = extract_features(data, sr=sr)
 
             # Get the label from the file name
@@ -95,8 +94,7 @@ for subdir, dirs, files in os.walk(audio_dir):
             all_files.append(os.path.join(subdir, file))
 
 # Split the list of files into training and test sets
-from sklearn.model_selection import train_test_split
-train_files, test_files = train_test_split(all_files, test_size=0.2)
+train_files, test_files = train_test_split(all_files, test_size=0.3, random_state=48)
 
 # Create generators for training and test sets
 train_generator = data_generator(train_files)
