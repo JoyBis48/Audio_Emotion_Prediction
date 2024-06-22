@@ -86,6 +86,7 @@ if recorded_data is not None:
     wav_write(wav_file_path, sr, audio_data)
 
     st.audio(recorded_data, format='audio/wav')
+    gender, _ = classify_gender("recorded_audio.wav")
     if gender=="male":
         st.write("Sorry :( , this model is only trained to detect emotions from female voices. Please upload female voice audio file.")
         os.remove("recorded_audio.wav")
