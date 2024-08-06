@@ -1,17 +1,18 @@
 # Importing all the necessary libraries
 import io
 import librosa  
-import numpy as np  
+import numpy as np      
 import os
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 import streamlit as st
 from st_audiorec import st_audiorec
 from scipy.io.wavfile import read as wav_read, write as wav_write 
-import warnings
-warnings.filterwarnings('ignore')
 import joblib
 from distinction import classify_gender
+import warnings
+warnings.filterwarnings('ignore')
+
 
 # Defining Emotion list based on encoded classes
 emotion_list = ['Angry', 'Disgusted', 'Fearful', 'Happy', 'Neutral', 'Sad', 'Surprised']

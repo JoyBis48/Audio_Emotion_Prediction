@@ -25,7 +25,7 @@ def create_model(vector_length=128):
     model.summary()
     return model
 
-# Load the pre-trained model
+# Loading the pre-trained model
 model = create_model()
 model.load_weights("distinction_weights.h5")
 
