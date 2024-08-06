@@ -94,8 +94,3 @@ if recorded_data is not None:
     else:
         emotion = detect(wav_file_path)
         st.write(f"Predicted Emotion: {emotion}")
-
-
-
-
-
